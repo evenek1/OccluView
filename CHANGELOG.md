@@ -23,6 +23,15 @@
   refused, and now says so in those terms. The surface refine reads the
   distance the scan actually travelled for the same reason.
 
+- Fixed 3D models rendering distorted in fullscreen on 4K displays, and only
+  there. The scene renders into a texture that is then painted across the whole
+  viewport, and the texture's size was capped per axis independently. A
+  3840 x 2160 viewport put only its width over the 2560 cap, so the texture
+  became 2560 x 2160 — 1.19:1 painted across 1.78:1, every model half again too
+  wide. Fullscreen alone, because that is where the width first passes the cap.
+  Both axes now take one scale factor, so the render target always has the
+  viewport's shape.
+
 ## 1.0.7 - 2026-08-22
 
 - Fixed shading on sub-20um facets: the absolute epsilon test culled every
