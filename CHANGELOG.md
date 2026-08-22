@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+- Fixed Align Scans refusing a correct fit between two scans stored in
+  different coordinate systems — the reported .dcm-to-.stl case. The runaway
+  guard measured the length of the pose's translation column, which is
+  `fixed_centroid - rotation * moving_centroid` and therefore grows with how
+  far a file's zero sits from the geometry it carries: real arches on disk sit
+  anywhere from 4 mm to 71 mm from their own zero, and a rotation alone drives
+  that number to twice the distance while the scan does not move at all. A scan
+  turned over where it stands reported a 142 mm "move" against an 88 mm limit
+  having travelled 2.3 mm. The number was identical in both directions and only
+  the limit changed with which scan was moving, so aligning A to B was refused
+  while B to A went through — and the direction that preserves the fixed scan's
+  coordinates was the one that failed.
+
+  The guard now asks the only question a registration has to answer: whether
+  the fit leaves the two scans on top of each other, measured as their bounding
+  spheres still touching. That is independent of where either file puts its
+  zero and identical whichever scan moves, so no widening of a threshold is
+  doing the work. A fit that throws a scan clear of its partner is still
+  refused, and now says so in those terms. The surface refine reads the
+  distance the scan actually travelled for the same reason.
+
 ## 1.0.7 - 2026-08-22
 
 - Fixed shading on sub-20um facets: the absolute epsilon test culled every
