@@ -43,6 +43,27 @@
   the whole palette instead of dropping back to Stone IV on reaching a colour
   it did not know about.
 
+- Added an occlusal contact reading. Right-click a scan and Show contacts
+  measures it against the scan it bites against and paints where they meet,
+  coloured by how hard. One slider moves the depth at which the ramp reads
+  fully loaded, and it re-colours rather than re-measures, so the boundary
+  between a light contact and a heavy one can be found by dragging it instead
+  of by typing numbers and waiting. Two readings share the panel: Contacts
+  marks only where the arches meet and leaves the rest of the tooth bare, as
+  articulating paper does; Approach paints how close the other scan is
+  everywhere, which is the reading for judging a jaw relationship rather than
+  the contacts themselves.
+
+  Three properties of such a map decide whether it can be read at all, and
+  each is enforced rather than assumed. Red sits on the load side, because red
+  at the far end puts a ring around every mark — a tooth curves away from a
+  contact within half a millimetre, so the geometry guarantees the ring.
+  Almost nothing is painted, because painting the whole approach turns a case
+  with a handful of real contacts into a field of colour with the marks lost
+  inside it. And the paint ends by opacity rather than by fading toward white,
+  which reads as a lighting artefact instead of as data. Colour mixing runs in
+  Oklab, so the ramp has no neon band or hue overshoot between its stops.
+
 ## 1.0.7 - 2026-08-22
 
 - Fixed shading on sub-20um facets: the absolute epsilon test culled every
