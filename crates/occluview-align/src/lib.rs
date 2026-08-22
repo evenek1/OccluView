@@ -39,6 +39,7 @@
 //! so a scale difference is *detected and reported*, never fitted away.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::float_cmp))]
 
+mod contact;
 mod deviation;
 mod icp;
 #[cfg(test)]
@@ -54,6 +55,7 @@ mod rigid;
 mod sample;
 mod surface;
 
+pub use contact::{ContactLaw, ContactScale, CLINICAL, LOAD_MAX_MM, LOAD_MIN_MM, TIGHTNESS};
 pub use deviation::{
     deviation, deviation_colors, deviation_stats, ramp_color, suggested_scale_mm, DeviationMap,
     DeviationSettings, DeviationStats, DeviationSummary, RampMode, RampSettings, Unmeasured,
