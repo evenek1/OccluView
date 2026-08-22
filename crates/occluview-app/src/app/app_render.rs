@@ -530,6 +530,7 @@ impl OccluViewApp {
                 self.show_mesh_editor_overlay(response.rect, ctx);
                 self.paint_mesh_selection_drag_overlay_impl(ui);
                 self.paint_sculpt_cursor_impl(ui, response.rect);
+                let contacts_ui_consumed = self.show_contact_overlay(ui, response.rect);
                 self.show_status_overlay(ui, response.rect);
                 let bridge_ui_consumed = self.show_bridge_split_overlay(ui, &response, ctx);
                 let cut_ui_consumed = self.show_cut_tool_overlay(ui, response.rect, ctx);
@@ -538,7 +539,8 @@ impl OccluViewApp {
                 let align_ui_consumed =
                     self.show_align_tool_overlay(ui, &response, axis_snap.is_some(), ctx);
                 let measure_ui_consumed =
-                    self.show_measure_tool_overlay(ui, &response, axis_snap.is_some(), ctx);
+                    self.show_measure_tool_overlay(ui, &response, axis_snap.is_some(), ctx)
+                        || contacts_ui_consumed;
                 if let Some(axis) = axis_snap {
                     if let Some(camera) = self.camera.as_mut() {
                         camera.snap_to_axis(axis);

@@ -16,6 +16,7 @@ use occluview_formats::{hps::RuntimeHpsKeyProvider, read_files_with_key_provider
 use std::path::PathBuf;
 
 mod align_brush;
+mod align_contacts;
 mod align_drag;
 mod align_geometry;
 mod align_markings;
@@ -51,6 +52,7 @@ mod measure_overlay;
 mod measure_tool;
 mod mesh_editor_icons;
 mod mesh_editor_overlay;
+mod occlusion;
 mod probe_section;
 mod repair_report;
 mod scene_loading;

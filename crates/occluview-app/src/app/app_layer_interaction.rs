@@ -173,6 +173,7 @@ impl OccluViewApp {
             show_texture: entry.show_texture && entry.show_vertex_colors,
             has_color_data: entry.mesh.carries_color_data(),
             has_texture: entry.mesh.texture().is_some(),
+            has_antagonist: crate::occlusion::antagonist_for(scene, hit.layer_id).is_some(),
         })
     }
 

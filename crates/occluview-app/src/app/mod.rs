@@ -55,6 +55,7 @@ mod app_load_errors;
 mod app_loading;
 mod app_mesh_editor;
 mod app_mesh_export;
+mod app_occlusion;
 mod app_render;
 mod app_scale_bar;
 mod app_scene_commit;

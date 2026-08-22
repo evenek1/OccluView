@@ -43,6 +43,9 @@ pub(crate) enum LayerMenuIcon {
     TextureOn,
     /// A crossed checker tile — texture sampling is disabled.
     TextureOff,
+    /// Two arches meeting, with the marks where they touch — the occlusal
+    /// contact reading.
+    Contacts,
     /// A trash can — remove the layer.
     Trash,
 }
@@ -133,6 +136,20 @@ pub(crate) fn paint_layer_menu(
             painter.line_segment([c1, c2], stroke);
             painter.line_segment([c1, tip], stroke);
             painter.line_segment([c2, tip], stroke);
+        }
+        LayerMenuIcon::Contacts => {
+            // Two arches closing on each other, with the marks where they
+            // meet. The marks are filled because they are the subject: the
+            // arches are only there to say which two surfaces made them.
+            painter.line_segment([p(0.08, 0.24), p(0.92, 0.24)], stroke);
+            painter.line_segment([p(0.08, 0.76), p(0.92, 0.76)], stroke);
+            for (x, dip) in [(0.30_f32, 0.10_f32), (0.68, 0.13)] {
+                painter.line_segment([p(x - 0.10, 0.24), p(x, 0.24 + dip)], stroke);
+                painter.line_segment([p(x, 0.24 + dip), p(x + 0.10, 0.24)], stroke);
+                painter.line_segment([p(x - 0.10, 0.76), p(x, 0.76 - dip)], stroke);
+                painter.line_segment([p(x, 0.76 - dip), p(x + 0.10, 0.76)], stroke);
+                painter.circle_filled(p(x, 0.50), r(0.075), color);
+            }
         }
         LayerMenuIcon::Repair => {
             // A broken seam pulled shut by vertical stitches — mend the mesh.

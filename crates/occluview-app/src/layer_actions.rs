@@ -51,6 +51,7 @@ pub(crate) enum LayerContextAction {
     ToggleShowVertexColors,
     ToggleShowTexture,
     EditMesh,
+    ShowContacts,
     BridgeSplit,
     DeleteSelectedFaces,
     CropToSelectedFaces,
@@ -105,6 +106,7 @@ pub(crate) fn apply_layer_context_action(
         LayerContextAction::ToggleShowTexture => toggle_show_texture(scene, index),
         LayerContextAction::InvertNormals
         | LayerContextAction::EditMesh
+        | LayerContextAction::ShowContacts
         | LayerContextAction::BridgeSplit
         | LayerContextAction::DeleteSelectedFaces
         | LayerContextAction::CropToSelectedFaces

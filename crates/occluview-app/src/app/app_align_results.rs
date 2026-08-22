@@ -121,6 +121,10 @@ impl OccluViewApp {
                 ));
                 self.measure_if_shown();
             }
+            AlignOutcome::Contacts { colors, stats } => {
+                self.apply_contact_colors(colors, &stats);
+                ctx.request_repaint();
+            }
             AlignOutcome::Measured {
                 colors,
                 stats,

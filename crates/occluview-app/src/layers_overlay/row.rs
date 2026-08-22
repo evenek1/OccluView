@@ -34,6 +34,7 @@ pub(super) struct LayerRowState {
     pub(super) show_texture: bool,
     pub(super) has_color_data: bool,
     pub(super) has_texture: bool,
+    pub(super) has_antagonist: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -83,6 +84,7 @@ pub(super) fn show_layer_row(
         show_texture: state.show_texture && state.show_vertex_colors,
         has_color_data: state.has_color_data,
         has_texture: state.has_texture,
+        has_antagonist: state.has_antagonist,
     };
 
     let row_response = ui

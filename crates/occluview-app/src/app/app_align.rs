@@ -4,8 +4,11 @@
 //! clicks and hands the worker the geometry it needs; what comes back is applied
 //! in [`super::app_align_results`].
 
+use std::sync::Arc;
+
 use eframe::egui;
 use glam::{DVec3, Vec3};
+use occluview_align::ContactScale;
 use occluview_align::Rigid;
 use occluview_core::{Scene, SceneMesh, SceneMeshId};
 
@@ -28,6 +31,10 @@ impl OccluViewApp {
         ctx: &egui::Context,
     ) -> bool {
         self.drain_align_worker(ctx);
+        // Before the early return: a contact reading outlives the align tool
+        // being armed, so a reading whose scan has left the scene has to be
+        // dropped whether or not anyone is aligning.
+        self.sync_contacts_with_scene();
         if !self.align.is_armed() {
             return false;
         }
@@ -327,23 +334,65 @@ impl OccluViewApp {
             .collect()
     }
 
-    /// Build and queue one job.
+    /// Build and queue one align-session job, taking its roles from the tool.
     fn submit_align_job(&mut self, kind: AlignJobKind, pairs: Vec<WorldPair>) {
-        let Some(scene) = self.scene.clone() else {
-            return;
-        };
-        if self.align_worker.is_none() {
-            return;
-        }
         let (Some(moving_id), Some(fixed_id)) =
             (self.align.moving_layer(), self.align.fixed_layer())
         else {
             self.align_status = Some("Place a point on each scan first".into());
             return;
         };
+        let refused = self.submit_surface_job(SurfaceRequest {
+            kind,
+            moving_id,
+            fixed_id,
+            pairs,
+            contact: None,
+        });
+        if let Some(message) = refused {
+            self.align_status = Some(message);
+        }
+    }
+
+    /// Queue the occlusal contact reading for the pair currently open.
+    ///
+    /// Deliberately not routed through the align session. The two carry
+    /// different roles over different layers, and a job that took its roles
+    /// from whichever tool happened to have set them last would eventually
+    /// measure the wrong pair.
+    pub(super) fn submit_contacts_job(&mut self) {
+        let Some(pair) = self.occlusion.pair() else {
+            return;
+        };
+        let scale = self.occlusion.scale();
+        let refused = self.submit_surface_job(SurfaceRequest {
+            kind: AlignJobKind::Contacts,
+            moving_id: pair.painted,
+            fixed_id: pair.antagonist,
+            pairs: Vec::new(),
+            contact: Some(scale),
+        });
+        self.occlusion_status = refused;
+    }
+
+    /// Build and queue one job against the fixed surface.
+    ///
+    /// Returns the sentence to show the operator when the job could not be
+    /// queued, so the caller can put it where that operator is actually
+    /// looking — the align panel or the contact overlay.
+    fn submit_surface_job(&mut self, request: SurfaceRequest) -> Option<String> {
+        let SurfaceRequest {
+            kind,
+            moving_id,
+            fixed_id,
+            pairs,
+            contact,
+        } = request;
+        let scene = self.scene.clone()?;
+        self.align_worker.as_ref()?;
         let (Some(moving), Some(fixed)) = (layer_of(&scene, moving_id), layer_of(&scene, fixed_id))
         else {
-            return;
+            return None;
         };
         // A hidden scan is still geometry, so every stage below would happily fit
         // against it and measure it, and the panel would report a percentage for a
@@ -355,20 +404,26 @@ impl OccluViewApp {
             let name = self
                 .layer_display_name(hidden)
                 .unwrap_or_else(|| "One of the scans".to_owned());
-            self.align_status = Some(format!("{name} is hidden — show it to align against it"));
-            return;
+            return Some(format!("{name} is hidden — show it to measure against it"));
         }
 
         let Some(pose) = Rigid::from_affine(&moving.transform) else {
-            self.align_status =
-                Some("That scan carries a scaled placement, which cannot be aligned".into());
-            return;
+            return Some("That scan carries a scaled placement, which cannot be measured".into());
         };
 
         // Geometry, not topology: a sculpt deliberately keeps the topology id
         // and mints a fresh geometry id precisely so geometry-derived caches
         // can tell that the surface changed under them.
-        let mask_revision = self.align_markings.revision();
+        // The exclusion brush belongs to the align session and is indexed by
+        // its roles. A contact reading runs over a different pair, so applying
+        // those marks would paint out an arbitrary region of a scan with
+        // nothing on screen to say why.
+        let session_marks = contact.is_none();
+        let mask_revision = if session_marks {
+            self.align_markings.revision()
+        } else {
+            0
+        };
         let moving_key = (moving.mesh.geometry_id(), transform_key(moving.transform));
         // The markings are part of the fixed surface's identity: masked
         // triangles are left out of the index entirely, so a different set of
@@ -385,36 +440,9 @@ impl OccluViewApp {
         let moving_indices = self.align_geometry.indices(moving);
         let fixed_world_positions = self.align_geometry.world_positions(fixed);
         let fixed_indices = self.align_geometry.indices(fixed);
-        // Filtered by vertex count on the way out. A mask taken on geometry that
-        // has since changed under the tool indexes vertices that no longer mean
-        // what it thinks, and handing it to a job would exclude an arbitrary
-        // region of the current scan with nothing on screen to say so.
-        let moving_marked = crate::align_markings::MarkedOn {
-            geometry: moving.mesh.geometry_id(),
-            vertex_count: moving.mesh.vertices().len(),
-        };
-        let fixed_marked = crate::align_markings::MarkedOn {
-            geometry: fixed.mesh.geometry_id(),
-            vertex_count: fixed.mesh.vertices().len(),
-        };
-        // Marks that no longer describe the scan in front of the operator are
-        // dropped, and SAID. They used to be dropped in silence, so a region
-        // painted out before a repair or a sculpt quietly re-entered the match and
-        // the fit changed for no visible reason.
-        let stale = [
-            (AlignSide::Moving, moving_marked),
-            (AlignSide::Fixed, fixed_marked),
-        ]
-        .into_iter()
-        .any(|(side, mesh)| self.align_markings.stale_for(side, mesh));
-        let mask = self
-            .align_markings
-            .mask_for(AlignSide::Moving, moving_marked);
-        let fixed_mask = self.align_markings.mask_for(AlignSide::Fixed, fixed_marked);
+        let (mask, fixed_mask, stale) = self.session_masks(session_marks, moving, fixed);
         let settings = self.align_settings;
-        let Some(worker) = self.align_worker.as_ref() else {
-            return;
-        };
+        let worker = self.align_worker.as_ref()?;
         worker.submit(AlignJob {
             generation: worker.generation(),
             kind,
@@ -435,22 +463,84 @@ impl OccluViewApp {
             mask,
             fixed_mask,
             settings,
+            contact,
         });
         if stale {
-            self.align_status = Some(
+            return Some(
                 "Markings dropped — the scan's surface changed since they were painted".into(),
             );
-            return;
         }
-        self.align_status = Some(
+        Some(
             match kind {
                 AlignJobKind::Align => "Aligning…",
                 AlignJobKind::Refine => "Refining…",
                 AlignJobKind::Measure => "Measuring…",
+                AlignJobKind::Contacts => "Reading contacts…",
             }
             .into(),
-        );
+        )
     }
+}
+
+impl OccluViewApp {
+    /// The align session's exclusion masks for this pair, and whether either
+    /// was painted on geometry that has since changed.
+    ///
+    /// Filtered by vertex count on the way out. A mask taken on geometry that
+    /// has since changed under the tool indexes vertices that no longer mean
+    /// what it thinks, and handing it to a job would exclude an arbitrary
+    /// region of the current scan with nothing on screen to say so.
+    ///
+    /// Marks that no longer describe the scan in front of the operator are
+    /// dropped, and SAID. They used to be dropped in silence, so a region
+    /// painted out before a repair or a sculpt quietly re-entered the match and
+    /// the fit changed for no visible reason.
+    fn session_masks(
+        &self,
+        session_marks: bool,
+        moving: &SceneMesh,
+        fixed: &SceneMesh,
+    ) -> SessionMasks {
+        if !session_marks {
+            return (None, None, false);
+        }
+        let moving_marked = crate::align_markings::MarkedOn {
+            geometry: moving.mesh.geometry_id(),
+            vertex_count: moving.mesh.vertices().len(),
+        };
+        let fixed_marked = crate::align_markings::MarkedOn {
+            geometry: fixed.mesh.geometry_id(),
+            vertex_count: fixed.mesh.vertices().len(),
+        };
+        let stale = [
+            (AlignSide::Moving, moving_marked),
+            (AlignSide::Fixed, fixed_marked),
+        ]
+        .into_iter()
+        .any(|(side, mesh)| self.align_markings.stale_for(side, mesh));
+        (
+            self.align_markings
+                .mask_for(AlignSide::Moving, moving_marked),
+            self.align_markings.mask_for(AlignSide::Fixed, fixed_marked),
+            stale,
+        )
+    }
+}
+
+/// The moving and fixed exclusion masks, and whether either is stale.
+type SessionMasks = (Option<Arc<Vec<u8>>>, Option<Arc<Vec<u8>>>, bool);
+
+/// One job to queue against the fixed surface.
+///
+/// A struct rather than five positional arguments: two of them are layer
+/// identities of the same type, and getting those the wrong way round measures
+/// the wrong scan onto the wrong one without failing.
+struct SurfaceRequest {
+    kind: AlignJobKind,
+    moving_id: SceneMeshId,
+    fixed_id: SceneMeshId,
+    pairs: Vec<WorldPair>,
+    contact: Option<ContactScale>,
 }
 
 /// Find a layer by identity.

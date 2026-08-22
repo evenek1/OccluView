@@ -57,6 +57,11 @@ pub(super) fn apply_layer_context_action_with_status(
         return LayerContextApply::default();
     }
 
+    if request.action == LayerContextAction::ShowContacts {
+        app.begin_contacts_from_layer(scene, request.layer_id);
+        return LayerContextApply::default();
+    }
+
     if request.action == LayerContextAction::EditMesh {
         begin_face_selection_with_status(app, scene, paths, request);
         return LayerContextApply::default();

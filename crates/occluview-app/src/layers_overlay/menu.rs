@@ -32,6 +32,10 @@ pub(crate) struct LayerContextMenuTarget {
     /// toggle is a no-op (and stays disabled) on a plain uncolored scan.
     pub(crate) has_color_data: bool,
     pub(crate) has_texture: bool,
+    /// Whether there is another visible surface for this scan to bite against.
+    /// A contact reading needs two scans, and offering it on a case that holds
+    /// one would be a menu entry that can only ever explain why it did nothing.
+    pub(crate) has_antagonist: bool,
 }
 
 /// Attach the layer context menu to a widget response (row controls / row body).
@@ -127,6 +131,17 @@ fn show_mesh_edit_actions(
     target: &LayerContextMenuTarget,
     context_request: &mut Option<LayerContextRequest>,
 ) {
+    layer_menu_button(
+        ui,
+        target,
+        LayerMenuButton::new(
+            LayerMenuIcon::Contacts,
+            "Show contacts",
+            target.has_antagonist,
+            LayerContextAction::ShowContacts,
+        ),
+        context_request,
+    );
     layer_menu_button(
         ui,
         target,

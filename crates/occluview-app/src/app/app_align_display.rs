@@ -42,6 +42,12 @@ pub(crate) enum AlignOverlay {
     Map,
     /// Which surface takes part in the match.
     Region,
+    /// Where this scan meets the one it bites against.
+    ///
+    /// Distinct from `Map` even though both are measured colour, because the
+    /// align tool clears, ghosts and re-scales its map on events a contact
+    /// reading has nothing to do with.
+    Contacts,
 }
 
 impl OccluViewApp {
@@ -221,6 +227,62 @@ impl OccluViewApp {
         wrote
     }
 
+    /// Take the overlay colours off ONE layer and restore its own.
+    ///
+    /// Narrower than [`Self::clear_deviation_overlay`] on purpose. That one
+    /// tears down the align tool's whole display — its ghosting, its statistics
+    /// and its overlay kind — which a contact reading has no business doing
+    /// when it closes.
+    pub(super) fn strip_overlay_colors(&mut self, layer: SceneMeshId) {
+        self.align_overlay_colors
+            .retain(|(painted, _)| *painted != layer);
+        if self.align_overlay_colors.is_empty() {
+            self.align_overlay = AlignOverlay::Nothing;
+            self.deviation_push_pending = false;
+        }
+        let Some(scene) = self.scene.as_mut() else {
+            return;
+        };
+        let live = Arc::make_mut(scene);
+        let Some(entry) = live
+            .meshes_mut()
+            .iter_mut()
+            .find(|entry| entry.id() == layer)
+        else {
+            return;
+        };
+        if entry.deviation_colors().is_none() {
+            return;
+        }
+        entry.set_deviation(None);
+        self.mark_scene_materials_changed();
+        self.restore_layer_colors(&[layer]);
+        self.needs_render = true;
+    }
+
+    /// Attach a finished contact reading to the scan it was measured on.
+    ///
+    /// The reading can outlive its own premise exactly as a measurement can:
+    /// the operator closes the overlay, or the scan leaves the scene, while
+    /// the worker is still painting. Both are checked here rather than
+    /// trusted, because the alternative is marks appearing on a scan after the
+    /// reading that produced them was dismissed.
+    pub(super) fn apply_contact_colors(
+        &mut self,
+        colors: Vec<[u8; 4]>,
+        stats: &occluview_align::DeviationStats,
+    ) {
+        let Some(pair) = self.occlusion.pair() else {
+            return;
+        };
+        if self.attach_overlay_colors(pair.painted, colors, AlignOverlay::Contacts) {
+            self.occlusion_status = Some(contact_readout(stats));
+        } else {
+            self.occlusion_status =
+                Some("The scan this reading was for is no longer available".into());
+        }
+    }
+
     /// Drop every overlay and restore the meshes' own colours.
     pub(super) fn clear_deviation_overlay(&mut self) {
         self.align_overlay = AlignOverlay::Nothing;
@@ -354,6 +416,22 @@ impl OccluViewApp {
         }
         self.mark_scene_materials_changed();
     }
+}
+
+/// What the contact overlay says about a finished reading.
+///
+/// Reports what was measured as well as what was found. A count of contacts
+/// with nothing beside it reads as a fact about the bite even when most of the
+/// arch never reached the other scan at all, which is the reading an operator
+/// is most likely to act on wrongly.
+fn contact_readout(stats: &occluview_align::DeviationStats) -> String {
+    let unmeasured = stats.unmeasured.total();
+    let total = stats.measured.saturating_add(unmeasured);
+    if stats.measured == 0 {
+        return "Nothing of this scan reached the other one, so there is nothing to read".into();
+    }
+    let covered = (f64::from(stats.measured) / f64::from(total.max(1))) * 100.0;
+    format!("{covered:.0}% of this scan found the other one")
 }
 
 #[cfg(test)]

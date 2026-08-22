@@ -20,9 +20,9 @@ use glam::DVec3;
 use occluview_align::suggested_scale_mm;
 use occluview_align::{
     deviation, deviation_stats, fit_pairs, observability, ramp_color, refine, CancelFlag,
-    DeviationMap, DeviationSettings, DeviationStats, FitBounds, FitRejection, IcpReport,
-    Observability, Orientation, RampMode, RampSettings, RefineSettings, Rigid, Soup, SurfaceIndex,
-    Validity, NO_DATA_COLOR,
+    ContactScale, DeviationMap, DeviationSettings, DeviationStats, FitBounds, FitRejection,
+    IcpReport, Observability, Orientation, RampMode, RampSettings, RefineSettings, Rigid, Soup,
+    SurfaceIndex, Validity, NO_DATA_COLOR,
 };
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
@@ -199,6 +199,13 @@ pub(crate) enum AlignJobKind {
     Refine,
     /// Measure the deviation map.
     Measure,
+    /// Measure the same map and paint it as an occlusal contact field.
+    ///
+    /// A separate kind rather than a flag on `Measure` so the result is
+    /// unambiguous at the other end: the two paint different things onto
+    /// different layers, and a completion that had to be attributed by
+    /// guessing at app state would eventually be attributed wrongly.
+    Contacts,
 }
 
 /// Everything one job needs. Geometry is borrowed through `Arc`, so submitting
@@ -232,6 +239,12 @@ pub(crate) struct AlignJob {
     pub(crate) fixed_mask: Option<Arc<Vec<u8>>>,
     /// The settings in force.
     pub(crate) settings: AlignSettings,
+    /// The contact scale to paint with, for a `Contacts` job.
+    ///
+    /// Deliberately absent from `measure_key`: it changes the COLOUR of a
+    /// measurement and never the measurement, so moving the slider reuses the
+    /// map already in hand instead of re-deriving it.
+    pub(crate) contact: Option<ContactScale>,
 }
 
 /// What a finished job produced.
@@ -266,6 +279,13 @@ pub(crate) enum AlignOutcome {
         /// this is derived from the measurement itself, so the panel has to
         /// adopt it or its legend would describe a different range.
         scale_mm: f64,
+    },
+    /// A contact field landed.
+    Contacts {
+        /// One RGBA per map entry, bare scan surface wherever nothing touches.
+        colors: Vec<[u8; 4]>,
+        /// Summary over the measured vertices, for the readout.
+        stats: DeviationStats,
     },
     /// Nothing trustworthy came out, and this is why.
     Failed {
@@ -517,7 +537,7 @@ fn execute(job: &AlignJob, cancel: &CancelFlag, cached: &mut WorkerCache) -> Ali
     let surface_job = match job.kind {
         AlignJobKind::Align => return align_from_pairs(job, moving),
         AlignJobKind::Refine => SurfaceJob::Refine,
-        AlignJobKind::Measure => SurfaceJob::Measure,
+        AlignJobKind::Measure | AlignJobKind::Contacts => SurfaceJob::Measure,
     };
 
     // A re-colour of a measurement already in hand never touches the surface:
@@ -565,6 +585,12 @@ fn execute(job: &AlignJob, cancel: &CancelFlag, cached: &mut WorkerCache) -> Ali
                 return recolor(job, cached);
             }
             let stats = deviation_stats(&map, job.settings.tolerance_mm);
+            if let Some(scale) = job.contact {
+                return AlignOutcome::Contacts {
+                    colors: crate::align_contacts::contact_colors(&map, scale),
+                    stats,
+                };
+            }
             paint(&map, job, stats, seen)
         }
     }
@@ -587,6 +613,12 @@ fn recolor(job: &AlignJob, cached: &mut WorkerCache) -> AlignOutcome {
             stats
         }
     };
+    if let Some(scale) = job.contact {
+        return AlignOutcome::Contacts {
+            colors: crate::align_contacts::contact_colors(map, scale),
+            stats,
+        };
+    }
     let seen = cached
         .seen
         .and_then(|(key, seen)| (key == job.measure_key).then_some(seen))

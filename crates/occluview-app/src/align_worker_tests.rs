@@ -359,6 +359,7 @@ fn measure_job(generation: u64) -> super::AlignJob {
         mask: None,
         fixed_mask: None,
         settings: AlignSettings::default(),
+        contact: None,
     }
 }
 

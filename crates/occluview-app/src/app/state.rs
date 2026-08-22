@@ -102,6 +102,11 @@ pub(crate) struct OccluViewApp {
     pub(super) sculpt: crate::sculpt_tool::SculptTool,
     pub(super) align: crate::align_tool::AlignTool,
     pub(super) align_worker: Option<crate::align_worker::AlignWorker>,
+    /// The occlusal contact reading: which pair, which law, and where the
+    /// operator has the load slider.
+    pub(super) occlusion: crate::occlusion::OcclusionView,
+    /// What the contact overlay has to say, if anything.
+    pub(super) occlusion_status: Option<String>,
     pub(super) align_settings: crate::align_worker::AlignSettings,
     pub(super) align_status: Option<String>,
     pub(super) align_stats: Option<occluview_align::DeviationStats>,
@@ -291,6 +296,8 @@ impl OccluViewApp {
             sculpt: crate::sculpt_tool::SculptTool::default(),
             align: crate::align_tool::AlignTool::default(),
             align_worker: None,
+            occlusion: crate::occlusion::OcclusionView::default(),
+            occlusion_status: None,
             align_settings: crate::align_worker::AlignSettings::default(),
             align_status: None,
             align_stats: None,

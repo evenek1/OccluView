@@ -20,6 +20,17 @@ impl Scene {
     }
 }
 
+impl super::SceneMesh {
+    /// This layer's bounding box where it currently sits, in world.
+    ///
+    /// [`Scene::bbox`] folds every visible layer into one box for framing;
+    /// anything asking WHICH layer is where needs them apart.
+    #[must_use]
+    pub fn world_bbox(&self) -> Aabb {
+        transform_bbox(self.mesh.bbox_cached(), self.transform)
+    }
+}
+
 /// Transform an [`Aabb`] by an [`Affine3A`] and return the axis-aligned box
 /// enclosing the 8 transformed corners. Rotation may grow the box (AABB of an
 /// OBB), which is expected and conservative for framing.
