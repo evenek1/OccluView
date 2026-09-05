@@ -4,7 +4,7 @@
 - **Phase C — vertical slice:** DONE.
 - **Phase D — full migration:** DONE (all in-app surfaces).
 - **Phase E — catalogs:** DONE for `en, ru, de, es, fr, it, pt-BR`
-  (612 keys each, contract-validated, all DRAFT). `zh-Hans, ja, ko`
+  (637 keys each, contract-validated, all DRAFT). `zh-Hans, ja, ko`
   stay out until the font spike (proven missing by
   `i18n::fonts` tests: subset, licensing, Han unification, package
   size). `pl, tr, zh-Hant` wait for evidence of demand. RTL out.
@@ -28,7 +28,7 @@
   when installed), update/downgrade matrix, single-instance handoff
   invariance. No installer-localization claims.
 
-## Acceptance matrix (STATUS.md tracks PASS/FAIL/NOT RUN/BLOCKED)
+## Acceptance matrix (tracked PASS/FAIL/NOT RUN/BLOCKED in the program status)
 
 source/build/tests · catalog validation · visual UI · Windows package ·
 Linux package · update/downgrade · fonts/IME · accessibility ·

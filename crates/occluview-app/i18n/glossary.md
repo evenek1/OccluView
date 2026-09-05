@@ -9,13 +9,13 @@ mm, in, CLI flags, IDs, OccluView.
 | occlusion | окклюзия | Okklusion | прикус / Biss | clinical term, noun |
 | contact | контакт | Kontakt | соединение / Verbindung | occlusal contact |
 | margin / finish line | край / финишная линия | Präparationsgrenze | граница / Rand | prefer full form in dialogs |
-| thickness | толщина | Stärke / Dicke | context-dependent; pick one per surface, TBD review |
+| thickness | толщина | Stärke / Dicke | context-dependent; native review picks one per surface |
 | alignment / registration | сопоставление | Ausrichtung | выравнивание / Registrierung | UI verb vs noun forms differ |
 | cut plane | секущая плоскость | Schnittebene | — |
 | mesh repair | исправление сетки | Netzreparatur | ремонт / Reparatur (colloquial) |
 | crown | коронка | Krone | — |
 | bridge | мостовидный протез | Brücke | мост / Brückenprothese (inconsistent) |
-| apply | Применить | Anwenden / Übernehmen | TBD per-button review |
+| apply | Применить | Anwenden / Übernehmen | native review picks one per button |
 | cancel | Отмена | Abbrechen | — |
 | open | Открыть | Öffnen | — |
 | close | Закрыть | Schließen | — |
