@@ -32,6 +32,7 @@ pub(crate) enum HintContext {
     Align,
     Cut,
     Measure,
+    Contacts,
 }
 
 const NAVIGATION: &[HintRow] = &[
@@ -295,6 +296,36 @@ const LAYERS_AND_EXPLORER_PREVIEW: &[HintRow] = &[
     },
 ];
 
+/// The occlusal contact reading: how to open one, what the one slider does, and
+/// which of the two readings answers which question.
+const CONTACTS: &[HintRow] = &[
+    HintRow {
+        gesture: "RMB on a layer",
+        action: "Read its occlusal contacts against the scan it bites against",
+        key: "help-hint-contacts-read-its-occlusal-contacts-against-the-scan-it-bites",
+    },
+    HintRow {
+        gesture: "Pointer over the map",
+        action: "Read the contact depth under the cursor, on either arch",
+        key: "help-hint-contacts-read-the-contact-depth-under-the-cursor",
+    },
+    HintRow {
+        gesture: "Heavy at",
+        action: "Move the depth the ramp calls fully loaded",
+        key: "help-hint-contacts-move-the-depth-the-ramp-calls-fully-loaded",
+    },
+    HintRow {
+        gesture: "Contacts / Approach",
+        action: "Switch between marks only and the whole approach",
+        key: "help-hint-contacts-switch-between-marks-only-and-the-whole-approach",
+    },
+    HintRow {
+        gesture: "Esc",
+        action: "Close the reading and take the marks off both scans",
+        key: "help-hint-contacts-close-the-reading-and-take-the-marks-off-both-scans",
+    },
+];
+
 pub(crate) const ALL_SECTIONS: &[HintSection] = &[
     HintSection {
         title: "Navigation",
@@ -327,6 +358,11 @@ pub(crate) const ALL_SECTIONS: &[HintSection] = &[
         rows: CUT_VIEW,
     },
     HintSection {
+        title: "Occlusal Contacts",
+        key: "help-section-contacts",
+        rows: CONTACTS,
+    },
+    HintSection {
         title: "Layers and Explorer Preview",
         key: "help-section-layers-preview",
         rows: LAYERS_AND_EXPLORER_PREVIEW,
@@ -347,6 +383,9 @@ pub(crate) const fn contextual_line(context: HintContext) -> &'static str {
             "LMB plant or move · Ctrl+wheel in Section resizes · F flips · Esc closes"
         }
         HintContext::Measure => "LMB measure · RMB clears · Wheel zooms · Esc closes",
+        HintContext::Contacts => {
+            "Right-click a layer · Show contacts · drag Heavy at to repaint · Esc closes"
+        }
     }
 }
 
@@ -359,6 +398,7 @@ pub(crate) const fn contextual_line_key(context: HintContext) -> &'static str {
         HintContext::Align => "help-hintline-align",
         HintContext::Cut => "help-hintline-cut",
         HintContext::Measure => "help-hintline-measure",
+        HintContext::Contacts => "help-hintline-contacts",
     }
 }
 
@@ -368,8 +408,24 @@ mod tests {
 
     #[test]
     fn catalogue_has_every_display_section_with_rows() {
-        assert_eq!(ALL_SECTIONS.len(), 7);
+        assert_eq!(ALL_SECTIONS.len(), 8);
         assert!(ALL_SECTIONS.iter().all(|section| !section.rows.is_empty()));
+    }
+
+    /// Every context's line must be the English catalog's own text: the
+    /// catalogue is what renders, so a source literal that drifts from it is a
+    /// second, invisible copy of the wording.
+    #[test]
+    fn the_contacts_context_line_is_pinned_like_every_other() {
+        #![allow(clippy::expect_used)]
+        let catalog = crate::i18n::catalog::Catalog::build("en").expect("en builds");
+        assert_eq!(
+            catalog
+                .text(contextual_line_key(HintContext::Contacts))
+                .as_deref(),
+            Some(contextual_line(HintContext::Contacts)),
+            "the contacts hint line drifted from its catalog entry"
+        );
     }
 
     #[test]
@@ -381,6 +437,7 @@ mod tests {
             HintContext::Align,
             HintContext::Cut,
             HintContext::Measure,
+            HintContext::Contacts,
         ] {
             assert!(!contextual_line(context).is_empty());
         }

@@ -97,7 +97,7 @@ fn identity_uniform(tint: [f32; 4], opacity: f32) -> GpuMeshUniform {
         show_vertex_colors: 1,
         show_texture: 1,
         measured_map: 0,
-        padding: [0; 2],
+        ..GpuMeshUniform::identity()
     }
 }
 
@@ -183,6 +183,7 @@ fn prepared_viewport_renders_rectangular_extent() {
         uniform,
         visible: true,
         wireframe: false,
+        contact: None,
     }]);
     let spec = ViewportSpec {
         size_px: [96, 48],
@@ -217,6 +218,7 @@ fn prepared_scene_opacity_blends_with_background() {
         uniform: opaque_uniform,
         visible: true,
         wireframe: false,
+        contact: None,
     }]);
     let opaque_pixels = pollster::block_on(offscreen.render_prepared_viewport_with_deadline(
         &opaque,
@@ -232,6 +234,7 @@ fn prepared_scene_opacity_blends_with_background() {
         uniform: transparent_uniform,
         visible: true,
         wireframe: false,
+        contact: None,
     }]);
     let transparent_pixels = pollster::block_on(offscreen.render_prepared_viewport_with_deadline(
         &transparent,
@@ -337,7 +340,7 @@ fn textured_triangle_renders_checkerboard() {
         show_vertex_colors: 1,
         show_texture: 1,
         measured_map: 0,
-        padding: [0; 2],
+        ..GpuMeshUniform::identity()
     };
 
     let entries = [occluview_render::SceneDrawEntry {

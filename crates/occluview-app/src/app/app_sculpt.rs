@@ -649,7 +649,10 @@ fn sculpt_cursor_color(kind: SculptToolKind, shift: bool) -> egui::Color32 {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::float_cmp, clippy::cast_precision_loss)]
-    #![allow(clippy::expect_used, reason = "source-contract pins must say what is missing")]
+    #![allow(
+        clippy::expect_used,
+        reason = "source-contract pins must say what is missing"
+    )]
     use super::{plan_dab_centers, sculpt_target};
     use crate::sculpt_tool::{HOLD_DAB_INTERVAL_SEC, MAX_DABS_PER_FRAME};
     use glam::Vec3;
