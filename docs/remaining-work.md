@@ -179,3 +179,201 @@ text. That is a bigger change than the rest and is scoped as its own item.
 6. Independent verification of all of the above.
 7. Build Windows MSI + Debian deb with the HPS key.
 8. Upload to the Nextcloud share.
+
+---
+
+# STATUS LEDGER (this wave)
+
+Written against the pinned test environment `scripts/test-linux.sh` (Lavapipe
+Vulkan + `OCCLUVIEW_REQUIRE_GPU_TESTS=1`), which makes the GPU suites execute
+instead of dying against the ambient `DISPLAY=:99` or early-returning. A test
+marked WRITTEN was proved able to fail by reverting the guarded production line
+where that was practical (the layer-removal guard was reverted and the test
+went red, then the tree was restored).
+
+Legend: WRITTEN `<test>` = a behavioural test exists; COVERED `<test>` = an
+existing test already exercised it; CANNOT `<reason>` = not testable here;
+NOT COVERED = a deliberate decision.
+
+## Priority 1
+
+1. WRITTEN `switching_brush_mode_finishes_a_live_stroke_instead_of_aborting_it`
+   (pre-existing sibling; the behaviour was already covered — see 9).
+2. WRITTEN `toggling_off_does_not_drop_a_worker_with_a_queued_finish`.
+3. WRITTEN `abort_also_reverts_a_released_stroke_waiting_in_the_worker`.
+4. WRITTEN `a_rejected_finish_keeps_the_stroke_for_a_later_retry`.
+5. WRITTEN `worker_loss_invalidates_an_active_sculpt_stroke`.
+6. WRITTEN `a_layer_rebuild_is_installed_before_any_sparse_vertex_write`
+   (app-level; the worker-internal ordering is `rebuild_supersedes_queued_sparse_updates`).
+7. WRITTEN `completions_walk_the_topology_chain_before_leftover_rebuilds_install`.
+8. WRITTEN `a_same_topology_completion_installs_its_rebuild_before_commit`.
+9. WRITTEN `every_terminal_failure_exit_raises_the_dialog_and_disarms`.
+10. WRITTEN `a_sculpt_commit_revokes_the_alignment_measured_against_the_old_mesh`.
+11. WRITTEN `a_geometry_change_forgets_the_whole_fit`.
+12. WRITTEN `a_result_the_operator_has_overtaken_is_never_applied`.
+13. WRITTEN `late_measurement_cannot_reopen_hidden_or_unrefined_map`.
+14. WRITTEN `a_measurement_with_no_summary_is_not_painted_on_the_scan`.
+15. WRITTEN `dropping_a_stale_map_also_drops_the_work_behind_it`.
+16. WRITTEN `measurement_requires_a_landed_refined_match`.
+17. WRITTEN `an_abandoned_preparation_never_installs_its_session` (the
+    abandoned-worker case; the warm-BVH cost itself has no observable seam, so
+    the test pins the operator-visible contract).
+18. WRITTEN `worker_passes_its_cancellation_token_into_the_kernel`.
+19. WRITTEN `terminal_finish_invariant_errors_stop_the_worker_command_loop`.
+20. WRITTEN `densification_failure_is_not_silently_dropped` (via a `#[cfg(test)]`
+    failure-injection seam; the path is unreachable from a well-formed mesh).
+21. WRITTEN `sculpt_preparation_counts_as_busy_before_the_worker_exists`.
+22. WRITTEN `the_stroke_baseline_is_snapshotted_cold`.
+23. WRITTEN `the_offscreen_viewport_replays_overlay_vertices_after_scene_upload`
+    — and the vacuous-skip path now fails under `OCCLUVIEW_REQUIRE_GPU_TESTS`.
+24. WRITTEN `a_failed_offscreen_frame_cannot_start_a_repaint_storm`.
+25. WRITTEN `a_readback_deadline_defers_the_offscreen_path_instead_of_killing_it`.
+26. WRITTEN `a_frame_during_the_retry_wait_cannot_latch_the_offscreen_path_off`.
+27. WRITTEN `the_graphics_fault_dialog_offers_the_retry_action`.
+28. WRITTEN `a_fatal_notice_cannot_block_the_failure_exit`.
+29. WRITTEN `worker_entry_converts_panics_to_a_visible_failure` (sculpt lane,
+    via a `#[cfg(test)]` panic trigger at the real `catch_unwind` boundary;
+    contact lane was already `a_panicking_worker_latches_a_failure_and_stops_looking_busy`).
+30. CANNOT `mapped_range_failure_cleans_up_before_the_error_can_return` —
+    `offenders::read_back_extent` already calls `unmap()` before returning on
+    every error branch, but the failure needs a real wgpu buffer whose
+    `get_mapped_range()` fails, which cannot be forced without a device-level
+    fault-injection seam. The cleanup is read directly in
+    `crates/occluview-render/src/offscreen/helpers.rs:194-234`.
+31. CANNOT `the_handoff_pipe_cannot_be_squatted_or_used_to_impersonate` —
+    Windows-only (single-instance named pipe). A Windows test would open the
+    pipe first and assert the app refuses to impersonate; blocked here because
+    the crate does not build on Linux.
+32. WRITTEN `a_crash_report_never_carries_a_scan_path`.
+33. WRITTEN `the_device_request_takes_its_buffer_ceiling_from_the_adapter`.
+34. WRITTEN `a_real_mesh_on_disk_renders_a_real_thumbnail` (black-box CLI).
+35. WRITTEN `the_shader_is_told_the_width_the_field_was_packed_with` and
+    `the_uniform_carries_the_field_width_it_was_given`.
+
+## Priority 2
+
+36. WRITTEN `brush_hotkeys_survive_a_held_shift`.
+37. WRITTEN `sculpt_hotkeys_switch_to_sculpt_from_edit_mesh`.
+38. WRITTEN `an_active_stroke_stops_sampling_when_pointer_leaves_viewport`.
+39. WRITTEN `sculpt_cursor_waits_for_a_warm_pick_before_sampling` (the
+    readiness half; ownership is the same gate as 38).
+40. WRITTEN `a_click_that_turns_the_pair_around_invalidates_the_fit`.
+41. WRITTEN `clicked_triangle_normals_stay_in_the_mesh_local_frame`.
+42. WRITTEN `fixed_pair_normals_use_the_inverse_transpose_for_scaled_instances`.
+43. WRITTEN `arming_align_stands_the_other_tools_down`.
+44. WRITTEN `removing_a_named_layer_revokes_refined_authority` (proved red on
+    revert of `forget_removed_align_layers`).
+45. COVERED `unchanged_geometry_is_handed_out_without_being_rebuilt`
+    (`align_geometry.rs`; the Arc reuse contract).
+46. COVERED `only_the_settings_that_change_the_distances_change_the_key`.
+47. WRITTEN `the_orientation_rule_is_disabled_while_a_fit_runs`.
+48. WRITTEN `a_settings_change_abandons_a_running_fit_without_waiting_for_a_claim`.
+49. WRITTEN `optimizer_setting_changes_drop_the_refined_authority`.
+50. NOT COVERED — `every_heavy_call_goes_through_the_worker` is architectural;
+    there is no call that could be asserted as "the only one". The funnel
+    (`submit_align_job`) and the worker (`execute`) are private with no
+    behavioural seam; a test would only restate the module layout.
+51. WRITTEN `returning_to_automatic_does_not_measure_implicitly`.
+52. WRITTEN `a_stroke_drops_the_map_instead_of_recomputing_it`.
+53. CANNOT `a_dab_reuses_the_cached_geometry_and_re_colours_only_what_it_touched`
+    as stated at the GPU level; the CPU half is COVERED by
+    `the_upload_buffer_is_repainted_not_rebuilt` (the scratch array is reused)
+    and `each_side_keeps_its_own_touched_list`. The GPU-side "re-colours only
+    what it touched" needs a prepared scene and a populated sparse write.
+54. CANNOT `a_dab_is_scoped_to_the_explicit_mesh_selection` as a GPU test;
+    COVERED at the mask level by `marking_one_scan_leaves_the_other_untouched`
+    and `mesh_selection_is_explicit_and_survives_role_swaps_by_physical_mesh`.
+55. WRITTEN `a_stroke_takes_its_direction_from_the_toggle_and_shift_together`.
+56. WRITTEN `numeric_range_edits_recolour_the_cached_map` and
+    `a_recolour_is_refused_when_the_measurement_identity_changed`.
+57. WRITTEN `measurement_requires_a_landed_refined_match` (same gate; the panel
+    is COVERED by `manual_tab_never_authorizes_a_heatmap_from_stale_readiness`).
+58. WRITTEN `an_overlay_never_touches_the_cpu_mesh`.
+59. WRITTEN `showing_and_hiding_an_overlay_never_replaces_the_scene`.
+60. WRITTEN `the_upload_buffer_is_repainted_not_rebuilt`.
+61. CANNOT `a_dab_uploads_only_the_vertices_it_touched` at the GPU level;
+    COVERED at the scratch level by `the_upload_buffer_is_repainted_not_rebuilt`
+    (only the touched index changes) and `each_side_keeps_its_own_touched_list`.
+62. WRITTEN `a_rejected_sparse_overlay_upload_is_not_reported_as_success` and
+    `a_malformed_sparse_overlay_write_does_not_mutate_the_scratch`.
+63. WRITTEN `every_attached_overlay_says_what_it_is`.
+64. WRITTEN `clearing_an_overlay_also_repairs_stale_display_bookkeeping`.
+65. WRITTEN `opening_a_reading_clears_the_align_heatmap`.
+66. WRITTEN `a_reading_marks_both_of_its_arches`.
+67. CANNOT `live_viewport_keeps_selection_overlay_separate_from_base_scene` at
+    the app level; the render crate owns it and
+    `prepared_viewport_can_draw_selection_overlay_after_base_scene`
+    (`occluview-render/tests/prepared_scene.rs`) covers it against a real
+    device.
+68. WRITTEN `linux_window_identity_matches_desktop_metadata` and
+    `linux_window_identity_matches_the_installed_appstream_entry`.
+69. CANNOT `installer_refreshes_shell_association_cache_after_registry_changes`
+    — Windows-only (COM/registry). A Windows test would install, change a
+    registration, and assert `SHChangeNotify` fired.
+70. WRITTEN `a_shifted_horizontal_wheel_notch_resizes_the_brush_once` (survived;
+    confirmed by grep).
+
+## Priority 3
+
+71-84. PARTIAL/WRITTEN. The AccessKit harness from `a0c6701` was extended:
+`the_exclusion_brush_is_offered_on_the_automatic_tab_only` and a new
+`the_orientation_rule_is_disabled_while_a_fit_runs` read the produced widget
+tree. The remaining layout/label items (movable window, cancel/done, no control
+naming a target/role, keyboard focus, accessible roles, compact chips, the
+brush as its own window, the map's name) are NOT COVERED: the panel-level
+AccessKit node for this window does not expose per-control disabled/label state
+reliably on this egui version, and a text assertion would recreate the mistake
+that was removed. The honest gap is recorded, not faked.
+
+## Priority 4
+
+85. NOT COVERED — deliberate. "This constant appears in this file" and doc-link
+    checks were the removed class; replacing them recreates it.
+86. See 71-84: the negative-UI family is NOT COVERED for want of a reliable
+    harness.
+
+## Inconsistencies
+
+87, 88, 91, 97. ALREADY FIXED before this wave by the cleanup commits; verified
+    in the tree (the doc now sits on its correct test).
+89, 90, 92, 93, 94, 95, 96. FIXED this wave (orphaned/duplicated/stale docs
+    removed; `app_sculpt_tests.rs` allow reason corrected).
+98. RESOLVED: the GUI/COM identity guards that read the crate's own `.rs` are
+    gone. The value-agreement half is restored as a real cross-artifact test,
+    `windows_app_identity_value_matches_the_shipped_shortcut`
+    (`APP_USER_MODEL_ID` vs `install/occluview.wxs`), which runs on the Windows
+    CI job. The Linux half is the real viewport-builder test
+    `linux_window_identity_matches_desktop_metadata`.
+99. CORRECTED in `.audit-ledger.md`: the removal total is recorded honestly
+    (the individual commit subjects overstate their own share).
+100. DONE in `.audit-ledger.md`.
+
+## Additional findings this wave
+
+- The `git grep repo_source_file|include_str!("*.rs")` count (14) UNDERCOUNTS
+  the self-text family: it misses tests that read a crate's own `.rs` through
+  `std::fs::read_to_string`. An independent read-only audit found seven more
+  pure self-text tests, and they were removed this wave:
+  `source_tree::every_source_file_is_named_by_a_module_declaration`,
+  `source_tree::no_source_file_carries_a_path_from_one_machine`,
+  `presentation_sinks::presentation_sinks_route_through_catalogs`,
+  `camera::camera_module_is_split_by_responsibility_not_single_file`,
+  `scene::scene_module_is_split_by_responsibility_not_single_file`,
+  `scene::scene_bbox_uses_mesh_bbox_cache_for_repaint_safety`,
+  `shell_preview_tests::preview_scene_is_split_by_responsibility_not_single_file`,
+  plus their now-dead `source_file` helpers and the `presentation_sinks`
+  prose-scanning machinery. The synthetic walker test
+  `source_tree::the_orphan_guard_recognises_both_module_layouts` was kept: it
+  writes temporary `.rs` fixtures and tests the walker itself.
+- After the removal the repo-`.rs` grep is 11 hits across 4 files, all genuine
+  cross-artifact contracts (README↔i18n/keys, MSI/`.wxs`/`.reg`↔registration
+  code). `crates/occluview-render`'s shader-text tests read `.wgsl`, a
+  production asset, and are not part of the family.
+- `cargo test -p occluview-render` under the ambient `DISPLAY=:99` SIGSEGVs;
+  `scripts/test-linux.sh` pins the Lavapipe ICD and unsets the display, which is
+  what CI does. It also sets `OCCLUVIEW_REQUIRE_GPU_TESTS=1`, which turns the
+  previously vacuous no-adapter early-return in
+  `the_offscreen_viewport_replays_overlay_vertices_after_scene_upload` into a
+  failure, so a green suite means the GPU tests actually ran.
+
+
