@@ -449,3 +449,40 @@ one `.ply`, and both the unit and round-trip tests assert the directory holds
 that file alone.
 
 
+
+## HPS/DCM key delivery (this pass)
+
+Verified with an independent read-only audit plus a real encrypted scan:
+
+- The deb workflow (`package-msi.yml`, `linux-package`) was dispatched on
+  `3d88adf` with `release_dry_run=false`, which builds Windows MSI and the Linux
+  deb with the real `OCCLUVIEW_HPS_EMBEDDED_KEY` and skips the `publish` job —
+  no GitHub Release. Run `35926082512`.
+- The key reaches the binary only through `OUT_DIR/embedded_hps_key.rs`
+  (`occluview-hps/build.rs:28-37`, `src/key.rs:155-158`), is XOR-obfuscated
+  (build.rs:82-92), and the generated module is untracked. The feature gate
+  `private-hps-key` is wired for the deb at `install/linux/build-deb.sh:115-118`
+  and for the MSI at `install/build-msi.ps1:424-430`.
+- The embedded key wins over the environment (`key.rs:145-152`); the env
+  fallbacks are `OCCLUVIEW_HPS_ENCRYPTION_KEY`, `OCCLUVIEW_HPS_KEY`,
+  `OCCLUTRACE_HPS_ENCRYPTION_KEY`, `HPS_ENCRYPTION_KEY`.
+- `HpsSecretKey`'s `Debug` redacts to `"<redacted>"` (`key.rs:56-62`) and the
+  type is `Zeroize + ZeroizeOnDrop`.
+- Differential proof on the real corpus: the CI-built deb opens
+  `/home/wow/test_scans/upper.dcm` (272252 vertices) and `lower.dcm` (168586
+  vertices), thumbnails `upper.dcm` to a valid PNG, and converts
+  `upper.dcm`→`.ply`; the local deb built with a placeholder key fails both at
+  `CE vertex data integrity check failed`. So the secret is genuinely in this
+  deb and genuinely absent from a placeholder build.
+
+FIXED: `key::tests::runtime_provider_reads_generated_embedded_key_when_present`
+used `assert_eq!` on the key byte slices, which prints both operands on failure.
+It runs inside the packaging jobs where one operand is the real private key, and
+the workflow's log scan only matches the literal secret string — a CSV-form
+secret would have been printed as a byte array and missed. Now compares without
+formatting, so a mismatch fails the build without putting material in the log.
+
+STILL OPEN (recorded): `install/linux/build-deb.sh` does not itself require the
+secret, so a hand-run build with an empty environment still produces a public,
+no-key package. Only the workflow step enforces it (`package-msi.yml:363-366`).
+The metainfo description does not qualify HPS support as "official builds only".
