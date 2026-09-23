@@ -9,7 +9,9 @@ what remains, and how to prove each step.
 ## 0. TL;DR for the impatient
 
 - **Repo**: `/home/wow/orca/workspaces/occluview-public/1.21`
-- **Branch**: `zer0ltrnce/1.21` — **HEAD `97b8c50`, pushed, working tree CLEAN**
+- **Branch**: `zer0ltrnce/1.21` — pushed, working tree CLEAN. The handoff you
+  are reading is itself a commit on top; take the real HEAD from `git log -1`, and
+  note that the commit which added this file is `a60ccf1`.
 - **Upstream**: `https://github.com/occlutrace/OccluView.git` (gh authed as `zer0ltrnce`, has `workflow` scope)
 - **Version**: `1.2.1` (the user calls it "1.21"; the branch is named after it)
 - **Language**: Rust workspace, dental CAD viewer (egui + wgpu)
@@ -361,7 +363,7 @@ Artifacts uploaded by the workflow: `occluview-windows-package` (the `dist/` dir
 with the MSI + portable zip + `.sha256`) and `occluview-linux-package` (`target/deb/*.deb`).
 
 **The current CI artifacts are STALE** — the successful run `35828545129` was built
-from `941339e`, which is **18 commits behind** `97b8c50`. **Rebuild after the tree is
+from `941339e`, which is behind the current HEAD. **Rebuild after the tree is
 final.** This matters to the user: stale artifacts are exactly what he complained
 about before.
 
@@ -458,7 +460,7 @@ Do not report success until **all** of these hold:
 
 ```bash
 cd /home/wow/orca/workspaces/occluview-public/1.21
-git log --oneline -1 && git status --porcelain          # expect 97b8c50, empty
+git log --oneline -1 && git status --porcelain          # expect empty tree, and a60ccf1 somewhere below HEAD
 sed -n '1,80p' docs/remaining-work.md                    # the plan
 grep -rn "repo_source_file\|include_str!(\"[^\"]*\.rs\"" crates/ | wc -l   # expect 14 (5 of them are helpers, not tests)
 timeout 1700 /home/wow/occlutraceio/scripts/heavy.sh bash -c \
