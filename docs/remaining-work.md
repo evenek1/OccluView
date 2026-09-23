@@ -376,4 +376,76 @@ that was removed. The honest gap is recorded, not faked.
   `the_offscreen_viewport_replays_overlay_vertices_after_scene_upload` into a
   failure, so a green suite means the GPU tests actually ran.
 
+## PLY / texture audit (this pass)
+
+Three read-only audit lanes covered PLY specifically (in-file texture), the
+full import→export colour matrix, and the docs' own acceptance claims. What was
+fixed, and what is honestly still open:
+
+FIXED this pass:
+
+- `an_image_past_the_decoders_limits_is_not_written` — the PLY writer used to
+  accept any texture whose base64 fit under `max_encoded_chars`, but the reader
+  additionally enforces `MAX_TEXTURE_DIMENSION_PX` (8192) and
+  `MAX_TEXTURE_RGBA_BYTES` (256 MiB). A lopsided atlas compressed small, was
+  written and reported as success, and re-opened with no texture. The writer now
+  asks the shared validator (`texture_decode::validate_texture_dimensions`) so
+  the two cannot drift; the drop routes through `TextureImageNotWritten`.
+- `a_payload_past_the_ceiling_stops_accumulating` — the header parser
+  concatenated every `OccluViewTextureBase64` chunk into one `String` and only
+  applied the ceiling afterwards, so a near-1 GB header forced a second
+  full-size allocation before rejection. `TextureComments.encoded_too_long`
+  now stops accumulation at the ceiling and releases what was held.
+- `the_embedded_keys_are_matched_case_insensitively` — `TextureFile` was already
+  case-insensitive; `OccluViewTextureFormat`/`Base64` were not, so a re-cased
+  export silently lost its texture. All three now match the same way.
+- `a_textured_dcm_saved_as_ply_keeps_its_colour_inside_the_file` and
+  `a_vertex_coloured_dcm_saved_as_ply_keeps_its_vertex_colour` — the operator's
+  own case, end to end: a textured and a vertex-coloured `.dcm` (HPS) opened
+  through dispatch, written as one `.ply`, then read back with the pixels and
+  the per-vertex bytes unchanged and with exactly one file left behind.
+- `a_face_element_with_no_property_is_refused_instead_of_spinning` — a binary
+  PLY whose `face` element declares rows but no property consumed no bytes per
+  row and looped forever on the same cursor state
+  (`ply/binary.rs::read_faces`). The CI fuzz smoke lane was dying exactly here:
+  its 13977-file cached corpus replay never finished inside the 20-minute job
+  timeout, and the last log line was the corpus load, not a crash. A huge count
+  in a malformed header is enough to trigger it, so the viewer and the Explorer
+  thumbnail host could be wedged by one crafted file. Fixed by refusing the
+  shape, mirroring what the ASCII reader already did; proved red by removing the
+  guard.
+
+STILL OPEN (recorded, not faked; all pre-existing, none introduced here):
+
+- `has_uvs()` is value-derived (`any(|v| v.uv != [0,0])`,
+  `occluview-core/src/mesh/mod.rs:181,218,270`), so a mesh whose whole mapping
+  is exactly (0,0) reports no UVs and both the reader
+  (`ply/mod.rs:141`) and the writer (`write/ply.rs:52`) drop its texture. A
+  correct fix needs a "UV data was declared" flag threaded through the loaders,
+  not another value guess. NOT COVERED.
+- STL per-vertex/attribute colour is neither read (`stl/binary.rs:105` ignores
+  the 2-byte trailer and the 80-byte header) nor written, and there is no
+  import-side warning type at all, so a colour-bearing dental STL re-saved to
+  PLY loses the colour with no signal. NOT COVERED.
+- glTF `COLOR_0` with normalized `UNSIGNED_SHORT` (5123) is rejected outright
+  (`gltf/accessor.rs:180-183`); glTF 2.0 permits it. NOT COVERED.
+- Multi-primitive/multi-material glTF keeps one texture silently
+  (`gltf/scene.rs:71-111` inspects only `primitives.first()`). NOT COVERED.
+- A foreign PLY with a same-stem sibling image but no `TextureFile` comment gets
+  no texture; `same_stem_image` is reached only from the OBJ branch
+  (`companions.rs:77`). NOT COVERED.
+- Reader-side texture loss is always silent (`ply/mod.rs:166-186`); the write
+  side warns. Deliberate (geometry-only opening is right), but recorded.
+- OFF/COFF colour is not read (`off.rs:96-113,216-232`), and the CLI
+  `occluview-hps-export` PLY artifact is geometry-only by design
+  (`hps/mesh.rs:42-53` passes no UVs/texture) with its `MeshWriteReport`
+  discarded; the coloured PLY route is the viewer's layer export, which is what
+  the two new tests exercise.
+
+The PLY writer was independently verified to never emit `comment TextureFile`
+and never write a second file: every writer call site
+(`app_scene_export.rs:143,353`, `app_mesh_export.rs:266`, CLI) writes exactly
+one `.ply`, and both the unit and round-trip tests assert the directory holds
+that file alone.
+
 
