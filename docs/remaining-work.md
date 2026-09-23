@@ -486,3 +486,25 @@ STILL OPEN (recorded): `install/linux/build-deb.sh` does not itself require the
 secret, so a hand-run build with an empty environment still produces a public,
 no-key package. Only the workflow step enforces it (`package-msi.yml:363-366`).
 The metainfo description does not qualify HPS support as "official builds only".
+
+## Colour loss on a save-format mismatch (this pass)
+
+FIXED: `representable_export_format` (`app_mesh_export.rs`) only second-guessed
+STL for a point cloud. A `.dcm`/HPS has no writer, so "keep the source format"
+cannot apply and the stored fallback decides; with the fallback set to STL, a
+scan captured in colour was proposed as `.stl`, and the export then dropped the
+atlas, the per-vertex colours and the mapping, warning only after the operator
+had picked a name. The proposal is now PLY whenever the layer carries a texture,
+vertex colours or a mapping, and STL only for a layer that carries none of them
+(so a geometry-only scan keeps the operator's choice).
+
+Proved red on revert: `a_colour_dcm_is_proposed_as_ply_even_when_the_fallback_is_stl`
+fails with `left: StlBinary, right: PlyBinaryLittleEndian` when the old
+condition is restored; `a_forced_stl_falls_back_to_ply_so_colour_is_not_thrown_away`
+covers texture / vertex-colour / mapping separately.
+
+NOTE: this makes the *proposal* correct, and the write path already warns via
+`MeshWriteWarning::VertexColorsNotWritten` / `TextureImageNotWritten` /
+`UvsNotWritten`. It does not stop an operator who deliberately types `.stl` for
+a colour scan; that write still succeeds with a warning, which is the existing
+documented contract for an explicit choice.
