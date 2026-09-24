@@ -508,3 +508,30 @@ NOTE: this makes the *proposal* correct, and the write path already warns via
 `UvsNotWritten`. It does not stop an operator who deliberately types `.stl` for
 a colour scan; that write still succeeds with a warning, which is the existing
 documented contract for an explicit choice.
+
+## Save-format setting removed (this pass)
+
+REMOVED: the whole save-format question from Settings — the "its own format" /
+"chosen format" mode switch, the format chips, the fallback hint, and the two
+explanatory lines. `FallbackExportFormat`, `Settings::fallback_export_format`
+and `Settings::keep_source_export_format` are gone, together with the 8 locale
+keys that described them (en key pin 693 -> 685). A settings document written
+while the fields existed still loads: serde drops them on read and the rewrite
+omits them, covered by `legacy_export_format_fields_still_load` and
+`obsolete_preferences_are_removed_when_the_document_is_rewritten`.
+
+The format is now decided from the scan by `automatic_export_format`:
+its own format when the viewer has a writer for it, otherwise `format_for_payload`
+— PLY when the scan has a texture, vertex colours or a mapping (or is a point
+cloud, which STL cannot hold at all), STL when it is plain geometry. A writable
+source format that cannot carry the payload also yields to PLY: STL for any
+colour, OBJ for a texture atlas.
+
+Proved by `a_dcm_is_offered_the_format_that_carries_what_it_holds`,
+`a_source_format_that_cannot_carry_the_payload_yields_to_ply`,
+`a_scan_keeps_its_own_writable_format`, and the UI-level
+`settings_offer_no_save_format_choice`, which renders the panel and asserts the
+removed labels are absent while the rule is still stated.
+
+UI: the footer's "Keyboard and mouse" and "About OccluView" are now one row of
+two equal buttons instead of two full-width text lines.
